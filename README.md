@@ -1,1 +1,1 @@
-# MinerJS
+# Miner

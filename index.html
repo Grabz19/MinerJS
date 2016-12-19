@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<link href="style.css" rel="stylesheet" type="text/css">
+	</head>
+
+	<body onresize="onResize()">
+		<div id="root"></div>
+		<div class="noselect" id="wrapper">
+			<div class="menu-border" id="menu_items">
+				<div class="menu">
+					<div class="submenu">
+						<div id="menu_items_left_col">
+							<span>Clock: <span id="debug_clock"></span></span><br>
+							<span>FPS: <span id="debug_frametime"></span></span><br>
+						</div>
+						<div id="menu_items_right_col">
+							<span class="text-color-science">Science: </span><span id="text_owned_science">0</span><br>
+							<span class="text-color-stone">Stone: </span><span id="text_owned_stone">0</span><br>
+							<span class="text-color-copper">Copper: </span><span id="text_owned_copper">0</span><br>
+							<span class="text-color-tin">Tin: </span><span id="text_owned_tin">0</span>
+						</div>
+					</div>
+					Inventory: (hold Shift to place multiple)
+					<div class="submenu" id="container_inventory"></div>
+					<div class="submenu" id="container_selection_upgrades"></div>
+					<div class="submenu" id="container_selection_description"></div>
+					<div class="submenu">
+						<div style="float:left; width: 50%;text-align:left">
+						Toggles<br>
+							<div class="btn btn-col-selected" id="button_use_fog">Generate new levels with fog</div><br>
+							<div class="btn btn-col-default" id="button_toggle_camera">Toggle Camera (on/off) <br>Control: WSAD/scroll</div><br>
+							<div class="btn btn-col-default" id="button_draw_debug">Draw debug (on/off)</div>
+						</div>
+						<div style="float:left; width: 50%;text-align:right">
+							New Level<br>
+							<div class="btn btn-col-default" id="button_new_level_16">16x16</div><br>
+							<div class="btn btn-col-default" id="button_new_level_32">32x32</div><br>
+							<div class="btn btn-col-default" id="button_new_level_64">64x64</div><br>
+							<div class="btn btn-col-default" id="button_new_level_128">128x128</div><br>
+							<div class="btn btn-col-default" id="button_new_level_256">256x256</div><br>
+							<div class="btn btn-col-disabled" id="button_new_level_512">512x512 (!)</div><br>
+							<div class="btn btn-col-disabled" id="button_new_level_1024">1024x1024 (!)</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			<div class="menu-border" id="menu_mine">
+				<div class="menu">
+					<div id="canvas_wrapper">
+						<canvas id="canvas_level" style="z-index:0"></canvas>
+						<canvas id="canvas_particles" style="z-index:1"></canvas>
+						<canvas id="canvas_highlight" style="z-index:2"></canvas>
+						<canvas id="canvas_events" style="z-index:999999"></canvas>
+						<div style="z-index: 999998;position:absolute;right:0;bottom:0">v0.1.0</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<script type="text/javascript" src="src/PxLoader.js"></script>
+		<script type="text/javascript" src="src/PxLoaderImage.js"></script>
+		<script type="text/javascript" src="src/quadtree.js"></script>
+		<script type="text/javascript" src="src/perlin.js"></script>
+		<script type="text/javascript" src="src/decimal.min.js"></script>
+		<script type="text/javascript" src="src/pathfinding-browser.min.js"></script>
+		
+		<script> window.Game = {}; </script>
+		<script type="text/javascript" src="src/utils.js"></script>
+		<script type="text/javascript" src="src/particles.js"></script>
+		<script type="text/javascript" src="src/properties.js"></script>
+		<script type="text/javascript" src="src/objects.js"></script>
+		<script type="text/javascript" src="src/main.js"></script>
+	</body>
+</html>
