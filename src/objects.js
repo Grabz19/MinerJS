@@ -12,8 +12,7 @@ function GameObject(image, name, x, y, width, height) {
 	this.height = height;
 	
 	this.isMarkedForDelete = false;
-	
-	this.collisionLevel = 10;
+	this.isCollider = true;
 }
 
 GameObject.instantiate = function(gameObject) {
@@ -23,9 +22,19 @@ GameObject.instantiate = function(gameObject) {
 	}
 	return gameObject;
 }
-
+GameObject.prototype.onPlay = function() {
+	var property;
+	for(property in this.properties) {
+		this.properties[property].onPlay();
+	}
+}
 GameObject.prototype.destroy = function() {
 	this.isMarkedForDelete = true;
+	
+	var property;
+	for(property in this.properties) {
+		this.properties[property].onReset();
+	}
 }
 
 GameObject.prototype.act = function(frameTime) {
@@ -126,18 +135,9 @@ Ore.prototype.draw = function(ctx, cellSize) {
 
 function Proxy(image, name, x, y, width, height, team, level, particles, player) {
 	GameObject.call(this, image, name, x, y, width, height);
-	
+
 	this.speed = 0;
 	this.miningSpeed = 0;
-	
-	/*this.targetPath = [];
-	this.pathIndex = 1;
-	this.targetType = "";
-	
-	this.state = "Halted";
-	
-	this.haltedInterval = 1000;
-	this.haltedClock = 0;*/
 	
 	this.level = level;
 	this.particles = particles;
@@ -155,17 +155,6 @@ function Proxy(image, name, x, y, width, height, team, level, particles, player)
 }
 Proxy.prototype = Object.create(GameObject.prototype);
 Proxy.prototype.constructor = Proxy;
-Proxy.prototype.destroy = function() { //TODO everything
-	this.properties.pOreMiner = new POreMiner(this, this.level, this.particles, this.player); //TODO get rid of all of this by moving properties' variables to proxy
-	this.properties.pOreBuffer = new POreBuffer(this);
-	this.properties.pOreBufferUnloader = new POreBufferUnloader(this, this.particles, this.player);
-	this.properties.pGridMovement = new PGridMovement(this, this.level);
-	this.properties.pProxyAI = new PProxyAI(this, this.level);
-	
-	GameObject.instantiate(this);
-	
-	GameObject.prototype.destroy.apply(this);
-}
 
 Proxy.prototype.act = function(frameTime) {
 	this.properties.pProxyAI.act(frameTime);
@@ -184,4 +173,26 @@ Proxy.prototype.draw = function(ctx, cellSize) {
 		ctx.drawImage(this.image, mov.calculatedX * cellSize, mov.calculatedY * cellSize, this.width * cellSize, this.height * cellSize);
 	}
 }
+
+function Relay(image, name, x, y, width, height, team, range, connectRange, level) {
+	GameObject.call(this, image, name, x, y, width, height);
+	
+	this.properties = {
+		pPlayerUnit : new PPlayerUnit(this, team, 3),
+		pRelay: new PRelay(this, range, connectRange, level)
+	}
+}
+Relay.prototype = Object.create(GameObject.prototype);
+Relay.prototype.constructor = Relay;
+Relay.prototype.act = function(frameTime) {
+	this.properties.pRelay.act(frameTime);
+}
+
+Relay.prototype.draw = function(ctx, cellSize) {
+	ctx.drawImage(this.image, this.x * cellSize, this.y * cellSize, this.width * cellSize, this.height * cellSize);
+}
+
+
+
+
 
