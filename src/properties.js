@@ -8,6 +8,13 @@ GameObjectProperty.prototype.act = function(frameTime) {
 }
 
 GameObjectProperty.prototype.initialize = function() {
+	this.onReset();
+}
+
+GameObjectProperty.prototype.onPlay = function() {
+	
+}
+GameObjectProperty.prototype.onReset = function() {
 	
 }
 
@@ -18,12 +25,14 @@ GameObjectProperty.instantiate = function(gameObjectProperty) {
 
 function POreResources(gameObject) {
 	GameObjectProperty.call(this, gameObject);
-	this.oreResources = [];
 }
 POreResources.prototype = Object.create(GameObjectProperty.prototype);
 POreResources.prototype.constructor = POreResources;
 POreResources.prototype.initialize = function() { 
-	
+	GameObjectProperty.prototype.initialize.apply(this);
+}
+POreResources.prototype.onReset = function() { 
+	this.oreResources = [];
 }
 POreResources.prototype.addOreResource = function(oreResource) {
 	if(oreResource instanceof OreResource) {
@@ -37,19 +46,19 @@ function POreMiner(gameObject, level, particles, player) {
 	this.particles = particles;
 	this.player = player;
 	
-	this.x = -1;
-	this.y = -1;
-	
-	this.clock = 0;
-	
 	this.pOreBuffer = null;
-	
-	this.isMining = false;
 }
 POreMiner.prototype = Object.create(GameObjectProperty.prototype);
 POreMiner.prototype.constructor = POreMiner;
 POreMiner.prototype.initialize = function() { 
+	GameObjectProperty.prototype.initialize.apply(this);
 	this.pOreBuffer = this.gameObject.getProperty(POreBuffer);
+}
+POreMiner.prototype.onReset = function() {
+	this.x = -1;
+	this.y = -1;
+	this.clock = 0;
+	this.isMining = false;
 }
 POreMiner.prototype.act = function(frameTime) {
 	this.isMining = true;
@@ -158,17 +167,18 @@ POreMiner.prototype.act = function(frameTime) {
 
 function POreBuffer(gameObject) {
 	GameObjectProperty.call(this, gameObject);
-	
+}
+POreBuffer.prototype = Object.create(GameObjectProperty.prototype);
+POreBuffer.prototype.constructor = POreBuffer;
+POreBuffer.prototype.initialize = function() { 
+	GameObjectProperty.prototype.initialize.apply(this);
+}
+POreBuffer.prototype.onReset = function() { 
 	this.isFull = false;
 	
 	this.buffer = {};
 	this.bufferCount = new Decimal(0);
 	this.bufferMax = new Decimal(15);
-}
-POreBuffer.prototype = Object.create(GameObjectProperty.prototype);
-POreBuffer.prototype.constructor = POreBuffer;
-POreBuffer.prototype.initialize = function() { 
-	
 }
 
 function POreBufferUnloader(gameObject, particles, player) {
@@ -187,8 +197,17 @@ function POreBufferUnloader(gameObject, particles, player) {
 }
 POreBufferUnloader.prototype = Object.create(GameObjectProperty.prototype);
 POreBufferUnloader.prototype.constructor = POreBufferUnloader;
-POreBufferUnloader.prototype.initialize = function() { 
+POreBufferUnloader.prototype.initialize = function() {
+	GameObjectProperty.prototype.initialize.apply(this);
 	this.pOreBuffer = this.gameObject.getProperty(POreBuffer);
+}
+POreBufferUnloader.prototype.onReset = function() { 
+	this.clock = 0;
+	this.interval = 40;
+	
+	this.isUnloading = false;
+	this.x = -1;
+	this.y = -1;
 }
 POreBufferUnloader.prototype.act = function(frameTime) {
 	this.isUnloading = false;
@@ -228,22 +247,24 @@ function PGridMovement(gameObject, level) {
 	this.level = level;
 	
 	this.pPlayerUnit = null;
-	
+}
+PGridMovement.prototype = Object.create(GameObjectProperty.prototype);
+PGridMovement.prototype.constructor = PGridMovement;
+PGridMovement.prototype.initialize = function() { 
+	GameObjectProperty.prototype.initialize.apply(this);
+	this.pPlayerUnit = this.gameObject.getProperty(PPlayerUnit);
+}
+PGridMovement.prototype.onReset = function() { 
 	this.isMoving = false;
 	this.vDirection = new Vector2(0, 0);
 	this.rotation = 0;
 	
 	this.collisionThreshold = 10;
 	
-	this.origX = gameObject.x;
-	this.origY = gameObject.y;
-	this.calculatedX = gameObject.x;
-	this.calculatedY = gameObject.y;
-}
-PGridMovement.prototype = Object.create(GameObjectProperty.prototype);
-PGridMovement.prototype.constructor = PGridMovement;
-PGridMovement.prototype.initialize = function() { 
-	this.pPlayerUnit = this.gameObject.getProperty(PPlayerUnit);
+	this.origX = this.gameObject.x;
+	this.origY = this.gameObject.y;
+	this.calculatedX = this.gameObject.x;
+	this.calculatedY = this.gameObject.y;
 }
 PGridMovement.prototype.act = function(frameTime) {
 	if(!this.isMoving) {
@@ -304,15 +325,6 @@ function PProxyAI(gameObject, level) {
 	
 	this.level = level;
 	
-	this.targetPath = [];
-	this.pathIndex = 1;
-	this.targetType = "";
-	
-	this.state = "Halted";
-	
-	this.haltedInterval = 1000;
-	this.haltedClock = 0;
-	
 	this.pGridMovement = null;
 	this.pOreBuffer = null;
 	this.pOreMiner = null;
@@ -322,13 +334,165 @@ function PProxyAI(gameObject, level) {
 PProxyAI.prototype = Object.create(GameObjectProperty.prototype);
 PProxyAI.prototype.constructor = PProxyAI;
 PProxyAI.prototype.initialize = function() {
+	GameObjectProperty.prototype.initialize.apply(this);
+	
 	this.pGridMovement = this.gameObject.getProperty(PGridMovement);
 	this.pOreBuffer = this.gameObject.getProperty(POreBuffer);
 	this.pOreMiner = this.gameObject.getProperty(POreMiner);
 	this.pOreBufferUnloader = this.gameObject.getProperty(POreBufferUnloader);
 	this.pPlayerUnit = this.gameObject.getProperty(PPlayerUnit);
 }
+PProxyAI.prototype.onReset = function() {
+	this.targetPath = [];
+	this.pathIndex = 1;
+	this.targetType = "";
+	
+	this.state = "Halted";
+	
+	this.haltedInterval = 1000;
+	this.haltedClock = 0;
+	
+	this.attemptInterval = 2;
+	this.attemptCount = 0;
+	
+	this.focusedRelay = null;
+	this.isRelayChanged = false;
+}
+PProxyAI.prototype.onPlay = function() {
+	this.findNewRelay();
+	this.isRelayChanged = false;
+}
+PProxyAI.prototype.act = function(frameTime) {
+	var mov = this.pGridMovement;
+	var buf = this.pOreBuffer;
+	var miner = this.pOreMiner;
+	var unl = this.pOreBufferUnloader;
+	
+	if(this.state !== "Idle") {
+		mov.act(frameTime);
+	}
+	
+	if(!this.level.isGameObjectPlaced(this.focusedRelay)) {
+		this.focusedRelay = null;
+	}
+	
+	if(this.focusedRelay === null) {
+		this.state = "Permanently Inactive (Need relay in range when placing)";
+		return;
+	}
 
+	switch(this.state) {
+		case "Halted":
+			this.haltedClock += frameTime;
+			if(this.haltedClock >= this.haltedInterval) {
+				this.haltedClock = 0;
+				this.state = "Idle";
+			}
+			break;
+		case "Idle":
+			if(this.isRelayChanged) {
+				var distance = Vector2.distance(new Vector2(this.gameObject.x, this.gameObject.y), new Vector2(this.focusedRelay.x, this.focusedRelay.y));
+				if(distance > 1) {
+					if(this.moveStepTowardsTarget()) {
+						this.state = "Moving";
+					}
+					else {
+						this.state = "Halted";
+					}
+				}
+				else {
+					this.isRelayChanged = false;
+					this.state = "Idle";
+				}
+			}
+			else if(!buf.isFull) {
+				if(this.targetType == "Ore") {
+					var pos = this.getTargetPositionInProximityOfClass(Ore);
+					if(pos !== null) {
+						mov.rotateTowardsDirection(pos.x - this.gameObject.x, pos.y - this.gameObject.y);
+						miner.x = pos.x;
+						miner.y = pos.y;
+						
+						this.resetTarget();
+						
+						this.state = "Mining";
+					}
+					else {
+						if(this.moveStepTowardsTarget()) {
+							this.state = "Moving";
+						}
+						else {
+							this.resetTarget();
+						}
+					}
+				}
+				else {
+					this.targetPath = this.getTargetOrePosition();
+					if(this.targetPath.length === 0) {
+						this.state = "Halted";
+						this.resetTarget();
+						
+						this.findNewRelay();
+					}
+					else {
+						this.targetType = "Ore";
+						this.pathIndex = 1;
+					}
+				}
+			}
+			else {
+				if(this.targetType == "Stash") {
+					var pos = this.getTargetPositionInProximityOfClass(Stash);
+					if(pos !== null) {
+						mov.rotateTowardsDirection(pos.x - this.gameObject.x, pos.y - this.gameObject.y);
+						unl.x = pos.x;
+						unl.y = pos.y;
+						
+						this.resetTarget();
+						
+						this.state = "Unloading";
+					}
+					else {
+						if(this.moveStepTowardsTarget()) {
+							this.state = "Moving";
+						}
+						else {
+							this.resetTarget();
+						}
+					}
+				}
+				else {
+					this.targetPath = this.getTargetStashPosition();
+					if(this.targetPath.length == 0) {
+						this.state = "Halted";
+						this.resetTarget();
+						this.findNewRelay();
+					}
+					else {
+						this.targetType = "Stash";
+						this.pathIndex = 1;
+					}
+				}
+			}
+			break;
+		case "Mining":
+			miner.act(frameTime);
+			if(!miner.isMining) {
+				this.state = "Idle";
+			}
+			break;
+		case "Unloading":
+			unl.act(frameTime);
+			if(!unl.isUnloading)
+				this.state = "Idle";
+			break;
+		case "Moving":
+			if(!mov.isMoving) {
+				this.state = "Idle";
+			}
+			break;
+	}
+}
 PProxyAI.prototype.resetTarget = function() {
 	this.targetPath = [];
 	this.targetType = "";
@@ -354,8 +518,9 @@ PProxyAI.prototype.moveStepTowardsTarget = function() {
 		vDirection = new Vector2(0, y);
 	}
 	
+	this.pathIndex++;
 	
-	var collidingObjects = this.level.getGameObjectsAt(this.gameObject.x + vDirection.x, this.gameObject.y + vDirection.y);
+	/*var collidingObjects = this.level.getGameObjectsAt(this.gameObject.x + vDirection.x, this.gameObject.y + vDirection.y);
 
 	this.pathIndex++;
 	
@@ -365,6 +530,19 @@ PProxyAI.prototype.moveStepTowardsTarget = function() {
 		this.pGridMovement.moveBy(vDirection);
 	else
 		return false;
+	return true;*/
+	
+	var collidingObjects = this.level.getGameObjectsAt(this.gameObject.x + vDirection.x, this.gameObject.y + vDirection.y);
+	var i;
+	if(collidingObjects !== null)
+		for(i = 0; i < collidingObjects.length; i++) {
+			if(collidingObjects[i].isCollider)
+				return false;
+		}
+	
+	this.pGridMovement.rotateTowardsDirection(vDirection.x, vDirection.y);
+	this.pGridMovement.moveBy(vDirection);
+
 	return true;
 }
 
@@ -376,7 +554,7 @@ PProxyAI.prototype.getTargetOrePosition = function() {
         width = 40,
         height = 40,
 		i,
-		maxAttempts = 100,
+		maxAttempts = 20,
 		attemptCount = 0,
 		path = [],
 		calcX = 0,
@@ -393,8 +571,8 @@ PProxyAI.prototype.getTargetOrePosition = function() {
 			obj = this.level.getSingleGameObjectOfClassAt(calcX, calcY, Ore);
 			
 			if(obj !== null) {
-				path = this.level.getPath(this.gameObject.x, this.gameObject.y, calcX, calcY);
-					
+				path = this.level.getPathWithinRelay(this.gameObject.x, this.gameObject.y, calcX, calcY, this.focusedRelay);
+				
 				if(path.length > 0) {
 					break;
 				}
@@ -459,7 +637,7 @@ PProxyAI.prototype.getTargetStashPosition = function() {
 		}
 	}
 
-	return this.level.getPath(this.gameObject.x, this.gameObject.y, targetCoords[0], targetCoords[1]);
+	return this.level.getPathWithinRelay(this.gameObject.x, this.gameObject.y, targetCoords[0], targetCoords[1], this.focusedRelay);
 }
 
 PProxyAI.prototype.getTargetPositionInProximityOfClass = function(c) {
@@ -492,107 +670,73 @@ PProxyAI.prototype.getTargetPositionInProximityOfClass = function(c) {
 	return null;
 }
 
-PProxyAI.prototype.act = function(frameTime) {
-	var mov = this.pGridMovement;
-	var buf = this.pOreBuffer;
-	var miner = this.pOreMiner;
-	var unl = this.pOreBufferUnloader;
-	
-	if(this.state != "Idle") {
-		mov.act(frameTime);
+PProxyAI.prototype.findNewRelay = function() {
+	if(this.focusedRelay === null) { //if no relays
+		var relays = this.level.getGameObjectsWithProperty(PRelay);
+		var _obj;
+		for(_obj in relays) {
+			if(relays[_obj].getProperty(PPlayerUnit) === null)
+				delete relays[_obj];
+		}
+		
+		var closestRelay = null;
+		var distance = Number.MAX_VALUE;
+		
+		var tempDistance = 0;
+		
+		for(_obj in relays) {
+			tempDistance = Vector2.distance(new Vector2(this.gameObject.x, this.gameObject.y), new Vector2(relays[_obj].x, relays[_obj].y))
+			if(tempDistance < distance) {
+				distance = tempDistance;
+				closestRelay = relays[_obj];
+			}
+		}
+		
+		if(closestRelay === null)
+			return false;
+		else {
+			this.focusedRelay = closestRelay;
+			this.isRelayChanged = true;
+			return true;
+		}
 	}
+	else { //if can go off existing relay
+		var i, j, prop = this.focusedRelay.getProperty(PRelay);
+		
+		var currentSetOfRelays = [];
 
-	switch(this.state) {
-		case "Halted":
-			this.haltedClock += frameTime;
-			if(this.haltedClock >= this.haltedInterval) {
-				this.haltedClock = 0;
-				this.state = "Idle";
+		for(i = 0; i < prop.connections.length; i++) {
+			currentSetOfRelays.push(prop.connections[i]);
+		}
+		
+		if(currentSetOfRelays.length === 0)
+			return false;
+		
+		var chosenRelay = currentSetOfRelays[Math.floor(Math.random() * prop.connections.length)];
+		
+		var path = this.level.getPathWithinRelay(this.gameObject.x, this.gameObject.y, chosenRelay.x, chosenRelay.y, this.focusedRelay);
+		
+		if(path.length > 0) {
+			this.resetTarget();
+			this.targetType = "Relay";
+			this.targetPath = path;
+			
+			this.focusedRelay = chosenRelay;
+			
+			this.isRelayChanged = true;
+			return true;
+		}
+		else return false;
+		
+		
+		
+		/*for(j = 0; j < 1000; j++) {
+			for(i = 0; i < currentSetOfRelays.length; i++) {
+				
 			}
-			break;
-		case "Idle":
-			if(!buf.isFull) {
-				if(this.targetType == "Ore") {
-					var pos = this.getTargetPositionInProximityOfClass(Ore);
-					if(pos !== null) {
-						mov.rotateTowardsDirection(pos.x - this.gameObject.x, pos.y - this.gameObject.y);
-						miner.x = pos.x;
-						miner.y = pos.y;
-						
-						this.resetTarget();
-						
-						this.state = "Mining";
-					}
-					else {
-						if(this.moveStepTowardsTarget()) {
-							this.state = "Moving";
-						}
-						else {
-							this.resetTarget();
-						}
-					}
-				}
-				else {
-					this.targetPath = this.getTargetOrePosition();
-					if(this.targetPath.length === 0) {
-						this.state = "Halted";
-						this.resetTarget();
-					}
-					else {
-						this.targetType = "Ore";
-						this.pathIndex = 1;
-					}
-				}
-			}
-			else {
-				if(this.targetType == "Stash") {
-					var pos = this.getTargetPositionInProximityOfClass(Stash);
-					if(pos !== null) {
-						mov.rotateTowardsDirection(pos.x - this.gameObject.x, pos.y - this.gameObject.y);
-						unl.x = pos.x;
-						unl.y = pos.y;
-						
-						this.resetTarget();
-						
-						this.state = "Unloading";
-					}
-					else {
-						if(this.moveStepTowardsTarget()) {
-							this.state = "Moving";
-						}
-						else {
-							this.resetTarget();
-						}
-					}
-				}
-				else {
-					this.targetPath = this.getTargetStashPosition();
-					if(this.targetPath.length == 0) {
-						this.state = "Halted";
-						this.resetTarget();
-					}
-					else {
-						this.targetType = "Stash";
-						this.pathIndex = 1;
-					}
-				}
-			}
-			break;
-		case "Mining":
-			miner.act(frameTime);
-			if(!miner.isMining) {
-				this.state = "Idle";
-			}
-			break;
-		case "Unloading":
-			unl.act(frameTime);
-			if(!unl.isUnloading)
-				this.state = "Idle";
-			break;
-		case "Moving":
-			if(!mov.isMoving)
-				this.state = "Idle";
-			break;
+		}*/
+		
+		//console.warn("PProxyAI findNewRelay() reached threshold of 1000.");
 	}
 }
 
@@ -604,6 +748,65 @@ function PPlayerUnit(gameObject, team, fogOfWarRadius) {
 }
 PPlayerUnit.prototype = Object.create(GameObjectProperty.prototype);
 PPlayerUnit.prototype.constructor = PPlayerUnit;
+
+function PRelay(gameObject, range, connectRange, level) {
+	GameObjectProperty.call(this, gameObject);
+	
+	this.range = range;
+	this.connectRange = connectRange;
+	
+	this.connections = [];
+	
+	this.level = level;
+}
+PRelay.prototype = Object.create(GameObjectProperty.prototype);
+PRelay.prototype.constructor = PRelay;
+PRelay.prototype.onPlay = function() {
+	console.log("Relay placed");
+	
+}
+PRelay.prototype.addConnection = function(gameObject) {
+	if(!(gameObject instanceof GameObject))
+		return false;
+	
+	if(gameObject.getProperty(PRelay) === null)
+		return false;
+	
+	var relay;
+	for(relay in this.connections) {
+		if(this.connections[relay] === gameObject)
+			return true;
+	}
+	
+	this.connections.push(gameObject);
+	return true;
+}
+PRelay.prototype.act = function(frameTime) {
+	this.connections = [];
+	
+	var relays = this.level.getGameObjectsWithProperty(PRelay);
+	var relay;
+	for(relay in relays) {
+		if(relays[relay] === this.gameObject)
+			continue;
+		
+		var prop1 = relays[relay].getProperty(PPlayerUnit);
+		var prop2 = this.gameObject.getProperty(PPlayerUnit);
+		
+		if(prop1 === null || prop2 === null || prop1.team !== prop2.team)
+			continue;
+		
+		if(Vector2.distance(new Vector2(relays[relay].x, relays[relay].y), new Vector2(this.gameObject.x, this.gameObject.y)) > this.connectRange)
+			continue;
+		
+		if(this.level.isRaycastBlocked(this.gameObject, relays[relay]))
+			continue;
+		
+		this.addConnection(relays[relay]);
+		relays[relay].getProperty(PRelay).addConnection(this.gameObject);
+	}
+}
+
 
 function PUpgrades(gameObject) {
 	GameObjectProperty.call(this, gameObject);

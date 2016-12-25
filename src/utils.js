@@ -59,6 +59,39 @@ GameUtil.isColliding = function(x1, y1, width1, height1, x2, y2, width2, height2
 			height1 + y1 > y2);
 }
 
+GameUtil.convertArrayCoordinatesToSmallerArray = function(coordinate, originalSize, targetSize) {
+	var newC = 0;
+	var offset = 0;
+	
+	if(coordinate + 32 < 64 - 1) { //0-63=64
+		newC = coordinate;
+	}
+	else if(coordinate > originalSize - 64 - 1) {//256-64-1  +64=255
+		newC = coordinate - originalSize + 64;
+		offset = originalSize - 64 - 1;
+	}
+	else {
+		newC = 32;
+		offset = coordinate - 32;
+	}
+	
+	return {
+		coordinate: newC,
+		startAt : offset
+	};
+}
+
+GameUtil.iterateOverCircle = function(originX, originY, radius, callback) { //callback(x, y)
+	var i, j;
+	for(i = -radius; i <= radius; i++) {
+		for(j = -radius; j <= radius; j++) {
+			if(j*j+i*i <= radius*radius) {
+				callback(j + originX, i + originY);
+			}
+		}
+	}
+}
+
 GameUtil.clamp = function(value, min, max){
 	if(value < min) return min;
 	else if(value > max) return max;

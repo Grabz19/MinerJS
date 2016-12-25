@@ -344,8 +344,8 @@
 	
 	var objects = [];
 	var objectsGrid = [];
+	var collisionGrid = [];
 	var pfMatrix = [];
-	var pfGrid = null;
 	var pfFinder = new PF.AStarFinder();
 	var wallGenerator = new GameUtil.WallGenerator();
 	
@@ -358,6 +358,18 @@
 	var player = null;
 	var cosp = null;
 	
+	var teamDefinitions = [
+		{
+			color: "lightgray"
+		},
+		{
+			color: "blue"
+		},
+		{
+			color: "orange"
+		}
+	];
+	
 	function Level(_particles, _player, _cosp) {
 		Game.CanvasObject.call(this, _cosp, document.getElementById("canvas_level")); //TODO
 		
@@ -369,87 +381,76 @@
 	Level.prototype = Object.create(Game.CanvasObject.prototype);
 	Level.prototype.constructor = Level;
 	
+	Level.prototype.getPathWithinRelay = function(origX, origY, targetX, targetY, obj) {
+		var relay;
+		if(obj === null)
+			return [];
+		if(obj instanceof GameObject) {
+			relay = obj.getProperty(PRelay);
+			if(relay === null)
+				return [];
+		}
+		
+		var matrix = [];
+		
+		var x, y;
+		for(y = 0; y < relay.range * 2 + 1; y++) {		//centered on relay
+			matrix[y] = [];
+			for(x = 0; x < relay.range * 2 + 1; x++) {
+				matrix[y][x] = 1;
+			}	
+		}
+		
+		var diffOrigX = obj.x - origX;
+		var diffOrigY = obj.y - origY;
+		var diffTargetX = obj.x - targetX;
+		var diffTargetY = obj.y - targetY;
+		
+		var startAtX = origX - relay.range;
+		var startAtY = origY - relay.range;
+		
+		GameUtil.iterateOverCircle(relay.range, relay.range, relay.range, function(x, y) {
+			if(collisionGrid[y + startAtY + diffOrigY] !== undefined && 
+			   collisionGrid[y + startAtY + diffOrigY][x + startAtX + diffOrigX] !== undefined &&
+			   collisionGrid[y + startAtY + diffOrigY][x + startAtX + diffOrigX] === 0) {
+				matrix[y][x] = 0;
+			}
+		});
+		
+		var grid = new PF.Grid(matrix);
+		
+		var _x = relay.range - diffOrigX;
+		var _y = relay.range - diffOrigY;
+		var _x2 = relay.range - diffTargetX;
+		var _y2 = relay.range - diffTargetY;
+		
+		if(_x < 0 || _x > relay.range * 2 ||
+		   _y < 0 || _y > relay.range * 2 ||
+		   _x2 < 0 || _x2 > relay.range * 2 ||
+		   _y2 < 0 || _y2 > relay.range * 2)
+		   return [];
+		   
+		grid.setWalkableAt(_x2, _y2, true);
+		var path = pfFinder.findPath(_x, _y, _x2, _y2, grid);
+		
+		path.forEach(function(coordinates) {
+			coordinates[0] += startAtX + diffOrigX;
+			coordinates[1] += startAtY + diffOrigY;
+		});
+		
+		return path;
+	}
+	
 	Level.prototype.getPath = function(origX, origY, targetX, targetY) {
 		var path;
 		
-		if(cosp.cellWidth <= 65 && cosp.cellHeight <= 65) { // default solution
-			pfGrid.setWalkableAt(targetX, targetY, true);
-			path = pfFinder.findPath(origX, origY, targetX, targetY, pfGrid.clone());
-			pfGrid.setWalkableAt(targetX, targetY, false);
-			
-			return path;
-		}
-		else { // large level compatibility
-			if(Math.abs(targetX - origX) > 64 || Math.abs(targetY - origY) > 64) { //TODO
-				return [];
-			}
+		pfGrid.setWalkableAt(targetX, targetY, true);
+		path = pfFinder.findPath(origX, origY, targetX, targetY, pfGrid.clone());
+		pfGrid.setWalkableAt(targetX, targetY, false);
 		
-			var newOrigY = 32;
-			var newOrigX = 32;
-			var newTargetY = 32 + (targetY - origY);
-			var newTargetX = 32 + (targetX - origX);
-			
-			var startY = origY - 32;
-			if(startY < 0) {
-				newOrigY += startY;
-				newTargetY += startY;
-				startY = 0;
-			}
-			
-			var startX = origX - 32;
-			if(startX < 0) {
-				newOrigX += startX;
-				newTargetX += startX;
-				startX = 0;
-			}
-			
-			var endY = origY + 32;
-			if(endY >= cosp.cellHeight) {
-				newOrigY -= endY - cosp.cellHeight - 1;
-				newTargetY -= endY - cosp.cellHeight - 1;
-				endY = cosp.cellHeight - 1;
-			}
-			
-			var endX = origX + 32;
-			if(endX >= cosp.cellWidth) {
-				newOrigX -= endX - cosp.cellWidth - 1;
-				newTargetX -= endX - cosp.cellWidth - 1;
-				endX = cosp.cellWidth - 1;
-			}
-			
-			console.log(startX, endX, startY, endY);
-			console.log(newOrigX, newOrigY, newTargetX, newTargetY);
-			
-			var grid = new PF.Grid(endX - startX, endY - startY);
-			
-			var yy = 0;
-			var xx = 0;
-			var y, x;
-			for(y = startY; y <= endY; y++) {
-				for(x = startX; x <= endX; x++) {
-					if(!pfGrid.getNodeAt(x, y).walkable) {
-						grid.setWalkableAt(xx, yy, false);
-					}
-					xx++;
-				}
-				xx = 0;
-				yy++;
-			}
-			
-			grid.setWalkableAt(newTargetX, newTargetY, true);
-			path = pfFinder.findPath(newOrigX, newOrigY, newTargetX, newTargetY, grid);
-			
-			path.forEach(function(coordinates) {
-				coordinates[0] += startX;
-				coordinates[1] += startY;
-			});
-			
-			return path;
-		}
-		
+		return path;
 	}
-	
-	Level.prototype.uncoverFogOfWar = function(x, y, radius) {
+	Level.prototype.uncoverFogOfWar = function(x, y, radius) { //TODO this is a mess
 		var i, j;
 		for(i = -radius; i <= radius; i++)
 			for(j = -radius; j <= radius; j++) {
@@ -481,30 +482,26 @@
 	Level.prototype.addGameObject = function(gameObject) {
 		if(gameObject instanceof GameObject) {
 			var x, y, z;
-			/*for(y = 0; y < gameObject.height; y++) {
-				for(x = 0; x < gameObject.width; x++) {
-					if(typeof objectsGrid[gameObject.y + y] !== "undefined" && typeof objectsGrid[gameObject.y + y][gameObject.x + x] !== "undefined") {
-						objectsGrid[gameObject.y + y][gameObject.x + x].push(gameObject);
-						pfGrid.setWalkableAt(gameObject.x + x, gameObject.y + y, false);
-					}
-					else {
-						console.warn("Registering a GameObject which is fully or partially out of bounds. Possibly unwanted behaviour.");
-					}
-				}
-			}*/
+
 			gameObject.isMarkedForDelete = false;
 			objects.push(gameObject);
 			
 			if(!(gameObject.x % 1) && !(gameObject.y % 1)) {
-				if(objectsGrid[gameObject.y] !== undefined && objectsGrid[gameObject.y][gameObject.x] !== undefined)
+				if(objectsGrid[gameObject.y] !== undefined && objectsGrid[gameObject.y][gameObject.x] !== undefined) {
 					for(z = 0; z < objectsGrid[gameObject.y][gameObject.x].length; z++) {
 						if(objectsGrid[gameObject.y][gameObject.x][z] === null) {
 							objectsGrid[gameObject.y][gameObject.x][z] = gameObject;
-							pfGrid.setWalkableAt(gameObject.x, gameObject.y, false);
+							collisionGrid[gameObject.y][gameObject.x] = gameObject.isCollider ? 1 : 0;
 							break;
 						}
 					}
+				}
+				else {
+					console.warn("Registering a GameObject which is fully or partially out of bounds. Possibly unwanted behaviour.");
+				}
 			}
+			
+			gameObject.onPlay();
 			
 			var pPlayerUnit = gameObject.getProperty(PPlayerUnit);
 			
@@ -557,40 +554,19 @@
 		var x, y, z;
 		
 		for(y = 0; y < cosp.cellHeight; y++) {
-			if(objectsGrid[y] === undefined)
-				objectsGrid[y] = [];
-			if(pfMatrix[y] === undefined)
-				pfMatrix[y] = [];
+			objectsGrid[y] = [];
+			collisionGrid[y] = [];
 			
 			for(x = 0; x < cosp.cellWidth; x++) {
-				if(objectsGrid[y][x] === undefined)
-					objectsGrid[y][x] = [];
-				if(pfMatrix[y][x] === undefined)
-					pfMatrix[y][x] = 0;
+				objectsGrid[y][x] = [];
+				collisionGrid[y][x] = 0;
 				objectsGrid[y][x][0] = null;
 				objectsGrid[y][x][1] = null;
 				objectsGrid[y][x][2] = null;
+				objectsGrid[y][x][3] = null;
+				objectsGrid[y][x][4] = null;
 			}
 		}
-		
-		pfGrid = new PF.Grid(pfMatrix);
-		/*
-		for(i = 0; i < objects.length; i++) {
-			if(objects[i].x % 1 === 0 && objects[i].y % 1 === 0) {
-				for(y = objects[i].y; y < objects[i].y + objects[i].height; y++) {
-					for(x = objects[i].x; x < objects[i].x + objects[i].width; x++) {
-						for(z = 0; z < 3; z++) {
-							if(objectsGrid[y][x][z] === null) {
-								objectsGrid[y][x][z] = objects[i];
-								break;
-							}
-							pfMatrix[y][x] = 1; //TODO isCollider
-						}
-					}
-				}
-			}
-		}
-		*/
 	}
 	
 	Level.prototype.getGameObjectsOfClass = function(c) {
@@ -613,7 +589,6 @@
 			if(property) {
 				arr[j] = objects[i];
 				j++;
-				break;
 			}
 		}
 		
@@ -621,6 +596,9 @@
 	}
 	
 	Level.prototype.generateNew = function(width, height, isNoFog) {
+		Game.actions.onInventoryChanged();
+		selectedObject = null;
+		
 		var i;
 		
 		cosp.cellWidth = width;
@@ -631,6 +609,9 @@
 		else
 			this.resetFogOfWar(2);
 		
+		for(var i = 0; i < objects.length; i++) {
+			objects[i].destroy();
+		}
 		objects.splice(0, objects.length);
 		
 		this.buildGameObjectsGrid();
@@ -822,24 +803,28 @@
 				var count = 0;
 				
 				for(z = 0; z < objectsGrid[origY][origX].length; z++) {
-					if(objectsGrid[origY][origX][z] !== null)
+					if(objectsGrid[origY][origX][z] !== null && objectsGrid[origY][origX][z].isCollider)
 						count++;
 					
 					if(objectsGrid[origY][origX][z] === gameObject) {
 						objectsGrid[origY][origX][z] = null;
 						count--;
 						for(z2 = 0; z2 < objectsGrid[targetY][targetX].length; z2++) {
-							if(objectsGrid[targetY][targetX][z2] === null)
+							if(objectsGrid[targetY][targetX][z2] === null) {
 								objectsGrid[targetY][targetX][z2] = gameObject;
+								break;
+							}
 						}
 					}
 						
 				}
 				
 				if(!count)
-					pfGrid.setWalkableAt(origX, origY, true);
+					collisionGrid[origY][origX] = 0;
 				
-				pfGrid.setWalkableAt(targetX, targetY, false);
+				if(gameObject.isCollider)
+					collisionGrid[targetY][targetX] = 1;
+				
 				return true;
 			}
 		}
@@ -850,17 +835,23 @@
 	Level.prototype.act = function(frameTime) {
 		Game.CanvasObject.prototype.act.apply(this, [frameTime]);
 		
-		var i;
+		if(Game.KeyInputManager.instance.getButtonDown("delete") && selectedObject !== null) {
+			selectedObject.destroy();
+		}
 		
+		var i;
 		for(i = 0; i < objects.length; i++) {
 			if(!objects[i].isMarkedForDelete)
 				objects[i].act(frameTime);
 			
 			if(objects[i].isMarkedForDelete) {
+				if(objects[i] === selectedObject)
+					selectedObject = null;
+				
 				if(!(objects[i].x % 1) && !(objects[i].y % 1) && objectsGrid[objects[i].y] !== undefined && objectsGrid[objects[i].y][objects[i].x] !== undefined) {
 					var z, count = 0;
 					for(z = 0; z < objectsGrid[objects[i].y][objects[i].x].length; z++) {
-						if(objectsGrid[objects[i].y][objects[i].x][z] !== null)
+						if(objectsGrid[objects[i].y][objects[i].x][z] !== null && objectsGrid[objects[i].y][objects[i].x][z].isCollider)
 							count++;
 						
 						if(objectsGrid[objects[i].y][objects[i].x][z] === objects[i]) {
@@ -870,10 +861,12 @@
 					}
 					
 					if(!count)
-						pfGrid.setWalkableAt(objects[i].x, objects[i].y, true);
+						collisionGrid[objects[i].y][objects[i].x] = 0;
 				}
 				objects[i].isMarkedForDelete = false;
 				objects.splice(i, 1);
+				
+				Game.actions.onInventoryChanged();
 				
 				i--;
 			}
@@ -918,30 +911,237 @@
 						this.ctx.fillRect(x * cosp.cellSize, y * cosp.cellSize, cosp.cellSize, cosp.cellSize);
 					}
 					else if(isPlacingObject && this.getGameObjectsAt(x, y) === null) {
-						this.ctx.fillStyle = "rgba(40,200,40,0.5)";
-						this.ctx.fillRect(x * cosp.cellSize, y * cosp.cellSize, cosp.cellSize, cosp.cellSize);
+						if(objectToPlace.getProperty(PProxyAI)) { //TODO revisit if more units which need to be placed next to relays are added
+							
+						} 
+						else {
+							this.ctx.fillStyle = "rgba(40,200,40,0.5)";
+							this.ctx.fillRect(x * cosp.cellSize, y * cosp.cellSize, cosp.cellSize, cosp.cellSize);
+						}
 					}
-					
-					//if(!pfGrid.nodes[y][x].walkable) {
-					//	this.ctx.fillStyle = "rgba(255,0,0,0.5)";
-					//	this.ctx.fillRect(x * cosp.cellSize, y * cosp.cellSize, cosp.cellSize, cosp.cellSize);
-					//}
-					
 				}
 			}
 		}
 		
-		if(selectedObject !== null) {
-			this.ctx.fillStyle = "yellow";
-			pGridMovement = selectedObject.getProperty(PGridMovement);
-			x = pGridMovement ? pGridMovement.calculatedX : selectedObject.x;
-			y = pGridMovement ? pGridMovement.calculatedY : selectedObject.y;
+		(function() {
+			var minX2 = minX - 10; //TODO adjust to range somehow
+			var minY2 = minY - 10;
+			var maxX2 = maxX + 10;
+			var maxY2 = maxY + 10;
+			minX2 = minX2 < 0 ? 0 : minX2;
+			minY2 = minY2 < 0 ? 0 : minY2;
+			maxX2 = maxX2 >= cosp.cellWidth ? cosp.cellWidth : maxX2;
+			maxY2 = maxY2 >= cosp.cellHeight ? cosp.cellHeight : maxY2;
 			
-			this.ctx.fillRect(x * cosp.cellSize, y * cosp.cellSize, cosp.cellSize, 1);
-			this.ctx.fillRect(x * cosp.cellSize, y * cosp.cellSize, 1, cosp.cellSize);
-			this.ctx.fillRect(x * cosp.cellSize, y * cosp.cellSize + cosp.cellSize - 1, cosp.cellSize, 1);
-			this.ctx.fillRect(x * cosp.cellSize + cosp.cellSize - 1, y * cosp.cellSize, 1, cosp.cellSize);
+			var relays = this.getGameObjectsWithProperty(PRelay);
+			var _obj
+			var playerObj;
+			var teams = {};
+			
+			for(_obj in relays) {
+				playerObj = relays[_obj].getProperty(PPlayerUnit);
+				if(playerObj === null)
+					continue;
+				
+				if(teams[playerObj.team] === undefined)
+					teams[playerObj.team] = [];
+			}
+			
+			//var arr = [];
+			
+			for(y = minY2; y < maxY2; y++) {
+				for(_obj in teams)
+					teams[_obj][y] = [];
+				for(x = minX2; x < maxX2; x++) {
+					for(_obj in teams)
+						teams[_obj][y][x] = 0;
+				}
+			}
+			
+			for(y = minY2; y < maxY2; y++) {
+				for(x = minX2; x < maxX2; x++) {
+					if(objectsGrid[y] !== undefined && objectsGrid[y][x] !== undefined) {
+						var z;
+						for(z = 0; z < objectsGrid[y][x].length; z++) {
+							if(objectsGrid[y][x][z] !== null) {
+								var prop = objectsGrid[y][x][z].getProperty(PRelay);
+								playerObj = objectsGrid[y][x][z].getProperty(PPlayerUnit)
+								
+								if(playerObj === null)
+									continue;
+								
+								if(prop !== null)
+									GameUtil.iterateOverCircle(x, y, prop.range, function(x, y) {
+										if(teams[playerObj.team][y] !== undefined && teams[playerObj.team][y][x] !== undefined)
+											teams[playerObj.team][y][x]++;
+									}.bind(this));
+							}
+						}
+					}
+				}
+			}
+			
+			var highlightTeam = -1;
+			
+			if(isPlacingObject && objectToPlace.getProperty(PProxyAI) !== null) {
+				var playerUnit = objectToPlace.getProperty(PPlayerUnit);
+				if(playerUnit !== null) {
+					highlightTeam = playerUnit.team;
+				}
+			}
+			
+			for(_obj in teams) {
+				//this.ctx.fillStyle = teamDefinitions[Number(_obj)].color;
+				for(y = minY2; y < maxY2; y++) {
+					for(x = minX2; x < maxX2; x++) {
+						if(teams[_obj][y][x]) {
+							this.ctx.fillStyle = "rgba(40,200,40,0.5)";
+							if(highlightTeam !== -1 && highlightTeam == _obj && this.getGameObjectsAt(x, y) === null && fogOfWarGrid[y] !== undefined && fogOfWarGrid[y][x] !== undefined && fogOfWarGrid[y][x] === 0) { //TODO dangerous comparison & decide to check isCollider on place && probably add a teamCoverageGrid && probably drink some tea
+								this.ctx.fillRect(x * cosp.cellSize, y * cosp.cellSize, cosp.cellSize, cosp.cellSize);
+							}
+							
+							this.ctx.fillStyle = teamDefinitions[Number(_obj)].color;
+							if(teams[_obj][y - 1] === undefined || teams[_obj][y - 1][x] === 0) {
+								this.ctx.fillRect(x * cosp.cellSize, y * cosp.cellSize, cosp.cellSize, 2);
+							}
+							if(teams[_obj][y + 1] === undefined || teams[_obj][y + 1][x] === 0) {
+								this.ctx.fillRect(x * cosp.cellSize, y * cosp.cellSize + cosp.cellSize - 2, cosp.cellSize, 2);
+							}
+							if(teams[_obj][y][x - 1] === undefined || teams[_obj][y][x - 1] === 0) {
+								this.ctx.fillRect(x * cosp.cellSize, y * cosp.cellSize, 2, cosp.cellSize);
+							}
+							if(teams[_obj][y][x + 1] === undefined || teams[_obj][y][x + 1] === 0) {
+								this.ctx.fillRect(x * cosp.cellSize + cosp.cellSize - 2, y * cosp.cellSize, 2, cosp.cellSize);
+							}
+						}
+					}
+				}
+			}
+		}).bind(this)();
+		
+		(function() {
+			var obj;
+			var relay;
+			var connection, temp;
+			var playerUnit;
+			
+			for(y = minY; y < maxY; y++) { //TODO create a god damn iterator you dingus
+				for(x = minX; x < maxX; x++) {
+					if(objectsGrid[y] !== undefined && objectsGrid[y][x] !== undefined) {
+						var z;
+						for(z = 0; z < objectsGrid[y][x].length; z++) {
+							obj = objectsGrid[y][x][z];
+							
+							if(obj === null)
+								continue;
+							
+							relay = obj.getProperty(PRelay);
+							playerUnit = obj.getProperty(PPlayerUnit);
+							
+							if(relay === null)
+								continue;
+							
+							for(connection in relay.connections) {
+								temp = relay.connections[connection];
+								
+								this.ctx.strokeStyle="black";
+								this.ctx.lineWidth = cosp.cellSize / 12;
+								
+								this.ctx.beginPath();
+								this.ctx.moveTo(obj.x * cosp.cellSize + (obj.width * cosp.cellSize / 2), obj.y * cosp.cellSize + (obj.height * cosp.cellSize / 2));
+								this.ctx.lineTo(temp.x * cosp.cellSize + (temp.width * cosp.cellSize / 2), temp.y * cosp.cellSize + (temp.height * cosp.cellSize / 2));
+								this.ctx.stroke();
+								
+								this.ctx.strokeStyle= playerUnit === null ? "white" : teamDefinitions[playerUnit.team].color;
+								this.ctx.lineWidth = cosp.cellSize / 18;
+								
+								this.ctx.beginPath();
+								this.ctx.moveTo(obj.x * cosp.cellSize + (obj.width * cosp.cellSize / 2), obj.y * cosp.cellSize + (obj.height * cosp.cellSize / 2));
+								this.ctx.lineTo(temp.x * cosp.cellSize + (temp.width * cosp.cellSize / 2), temp.y * cosp.cellSize + (temp.height * cosp.cellSize / 2));
+								this.ctx.stroke();
+							}
+						}
+					}
+				}
+			}
+
+			
+		}).bind(this)();
+		
+		(function() {
+			if(selectedObject !== null) {
+				this.ctx.fillStyle = "yellow";
+				pGridMovement = selectedObject.getProperty(PGridMovement);
+				x = pGridMovement ? pGridMovement.calculatedX : selectedObject.x;
+				y = pGridMovement ? pGridMovement.calculatedY : selectedObject.y;
+				
+				this.ctx.fillRect(x * cosp.cellSize, y * cosp.cellSize, cosp.cellSize, 1);
+				this.ctx.fillRect(x * cosp.cellSize, y * cosp.cellSize, 1, cosp.cellSize);
+				this.ctx.fillRect(x * cosp.cellSize, y * cosp.cellSize + cosp.cellSize - 1, cosp.cellSize, 1);
+				this.ctx.fillRect(x * cosp.cellSize + cosp.cellSize - 1, y * cosp.cellSize, 1, cosp.cellSize);
+				
+				var prop = selectedObject.getProperty(PProxyAI);
+				if(prop !== null) {
+					var relay = prop.focusedRelay;
+					if(relay !== null) {
+						this.ctx.fillStyle = "rgba(159, 0, 228, 0.4)";
+						this.ctx.fillRect(relay.x * cosp.cellSize, relay.y * cosp.cellSize, cosp.cellSize, cosp.cellSize);
+						
+						prop = selectedObject.getProperty(PGridMovement);
+						if(prop !== null) {
+							this.ctx.strokeStyle="rgba(159, 0, 228, 0.4)";
+							this.ctx.lineWidth = cosp.cellSize / 24;
+							
+							this.ctx.beginPath();
+							this.ctx.moveTo(prop.calculatedX * cosp.cellSize + (selectedObject.width * cosp.cellSize / 2), prop.calculatedY * cosp.cellSize + (selectedObject.height * cosp.cellSize / 2));
+							this.ctx.lineTo(relay.x * cosp.cellSize + (relay.width * cosp.cellSize / 2), relay.y * cosp.cellSize + (relay.height * cosp.cellSize / 2));
+							this.ctx.stroke();
+						}
+					}
+				}
+			}
+		}).bind(this)();
+	}
+	
+	//http://playtechs.blogspot.com/2007/03/raytracing-on-grid.html
+	Level.prototype.isRaycastBlocked = function(obj1, obj2) {
+		var dx = Math.abs(obj2.x - obj1.x);
+		var dy = Math.abs(obj2.y - obj1.y);
+		var x = obj1.x;
+		var y = obj1.y;
+		var n = 1 + dx + dy;
+		var xInc = (obj2.x > obj1.x) ? 1 : -1;
+		var yInc = (obj2.y > obj1.y) ? 1 : -1;
+		var error = dx - dy;
+		
+		dx *= 2;
+		dy *= 2;
+		
+		var obj;
+		var z;
+		
+		for(; n > 0; n--) {
+			if(!((x === obj2.x && y === obj2.y) || (x === obj1.x && y === obj1.y))) { //if not the origin or target object(s)
+				obj = this.getGameObjectsAt(x, y);
+				if(obj !== null) {
+					for(z = 0; z < obj.length; z++) {
+						if(!(obj[z] instanceof Proxy)) //TODO less manual picking units in future maybe? (i dont know right now)
+							return true;
+					}
+				}
+			}
+			
+			if(error > 0) {
+				x += xInc;
+				error -= dy;
+			}
+			else {
+				y += yInc;
+				error += dx;
+			}
 		}
+		
+		return false;
 	}
 	
 	Level.prototype.placeSelectedGameObject = function(x, y) {
@@ -1402,6 +1602,19 @@
 				}
 			}
 		}
+		
+		//////
+		var node = document.createElement("div"); //TEMPORARY DELETE UNIT
+		node.className = "btn btn-col-default";
+		node.innerHTML = "Delete (press X)";
+		node.onmousedown = (function(obj){
+			return function(){
+				obj.destroy();
+			}
+		})(obj);
+		containerSelectionUpgrades.appendChild(node);
+		containerSelectionUpgrades.appendChild(document.createElement("br"));
+		//////
 	}
 	
 	buttonNewLevel16.addEventListener("click", function(){
@@ -1503,9 +1716,11 @@
 		Assets.imgStashEnemy = loader.addImage("images/stash-enemy.png");
 		Assets.imgStashEnemy2 = loader.addImage("images/stash-enemy2.png");
 		Assets.imgWall = loader.addImage("images/wall.png");
+		Assets.imgRelay = loader.addImage("images/relay.png");
+		Assets.imgRelayEnemy = loader.addImage("images/relay-enemy.png");
 		
 		loader.addProgressListener(function(e) {
-			console.log(e.completedCount + ' / ' + e.totalCount);
+			//console.log(e.completedCount + ' / ' + e.totalCount);
 		});
 		loader.addCompletionListener(function() {
 			callback();
@@ -1533,6 +1748,8 @@
 	var isPaused = false;
 	
 	Game.KeyInputManager.instance.changeKeybind("placeMultiple", 	Game.KeyInputManager.instance.Key.Shift, 	false);
+	Game.KeyInputManager.instance.changeKeybind("delete", 			Game.KeyInputManager.instance.Key.X, 		false);
+	
 	Game.KeyInputManager.instance.changeKeybind("left", 			Game.KeyInputManager.instance.Key.A, 		false);
 	Game.KeyInputManager.instance.changeKeybind("right", 			Game.KeyInputManager.instance.Key.D, 		false);
 	Game.KeyInputManager.instance.changeKeybind("up", 				Game.KeyInputManager.instance.Key.W, 		false);
@@ -1616,6 +1833,12 @@
 		player.addGameObjectToInventory(GameObject.instantiate(new Proxy(Game.Assets.imgProxy, "Proxy", 0, 0, 1, 1, 0, level, particles, player)));
 		player.addGameObjectToInventory(GameObject.instantiate(new Proxy(Game.Assets.imgProxy, "Proxy", 0, 0, 1, 1, 0, level, particles, player)));
 		player.addGameObjectToInventory(GameObject.instantiate(new Proxy(Game.Assets.imgProxy, "Proxy", 0, 0, 1, 1, 0, level, particles, player)));
+		player.addGameObjectToInventory(GameObject.instantiate(new Relay(Game.Assets.imgRelay, "Relay", 0, 0, 1, 1, 0, 5, 5, level)));
+		player.addGameObjectToInventory(GameObject.instantiate(new Relay(Game.Assets.imgRelay, "Relay", 0, 0, 1, 1, 0, 5, 5, level)));
+		player.addGameObjectToInventory(GameObject.instantiate(new Relay(Game.Assets.imgRelay, "Relay", 0, 0, 1, 1, 0, 5, 5, level)));
+		player.addGameObjectToInventory(GameObject.instantiate(new Relay(Game.Assets.imgRelay, "Relay", 0, 0, 1, 1, 0, 5, 5, level)));
+		player.addGameObjectToInventory(GameObject.instantiate(new Relay(Game.Assets.imgRelay, "Relay", 0, 0, 1, 1, 0, 5, 5, level)));
+		player.addGameObjectToInventory(GameObject.instantiate(new Relay(Game.Assets.imgRelay, "Relay", 0, 0, 1, 1, 0, 5, 5, level)));
 		
 		player.addGameObjectToInventory(GameObject.instantiate(new Stash(Game.Assets.imgStashEnemy, "Stash", 0, 0, 1, 1, 1)));
 		player.addGameObjectToInventory(GameObject.instantiate(new Stash(Game.Assets.imgStashEnemy, "Stash", 0, 0, 1, 1, 1)));
@@ -1625,6 +1848,12 @@
 		player.addGameObjectToInventory(GameObject.instantiate(new Proxy(Game.Assets.imgProxyEnemy, "Proxy", 0, 0, 1, 1, 1, level, particles, enemy)));
 		player.addGameObjectToInventory(GameObject.instantiate(new Proxy(Game.Assets.imgProxyEnemy, "Proxy", 0, 0, 1, 1, 1, level, particles, enemy)));
 		player.addGameObjectToInventory(GameObject.instantiate(new Proxy(Game.Assets.imgProxyEnemy, "Proxy", 0, 0, 1, 1, 1, level, particles, enemy)));
+		player.addGameObjectToInventory(GameObject.instantiate(new Relay(Game.Assets.imgRelayEnemy, "Relay", 0, 0, 1, 1, 1, 5, 5, level)));
+		player.addGameObjectToInventory(GameObject.instantiate(new Relay(Game.Assets.imgRelayEnemy, "Relay", 0, 0, 1, 1, 1, 5, 5, level)));
+		player.addGameObjectToInventory(GameObject.instantiate(new Relay(Game.Assets.imgRelayEnemy, "Relay", 0, 0, 1, 1, 1, 5, 5, level)));
+		player.addGameObjectToInventory(GameObject.instantiate(new Relay(Game.Assets.imgRelayEnemy, "Relay", 0, 0, 1, 1, 1, 5, 5, level)));
+		player.addGameObjectToInventory(GameObject.instantiate(new Relay(Game.Assets.imgRelayEnemy, "Relay", 0, 0, 1, 1, 1, 5, 5, level)));
+		player.addGameObjectToInventory(GameObject.instantiate(new Relay(Game.Assets.imgRelayEnemy, "Relay", 0, 0, 1, 1, 1, 5, 5, level)));
 		
 		player.addGameObjectToInventory(GameObject.instantiate(new Stash(Game.Assets.imgStashEnemy2, "Stash", 0, 0, 1, 1, 2)));
 		player.addGameObjectToInventory(GameObject.instantiate(new Stash(Game.Assets.imgStashEnemy2, "Stash", 0, 0, 1, 1, 2)));
