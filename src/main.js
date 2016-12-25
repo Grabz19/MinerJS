@@ -865,9 +865,7 @@
 				}
 				objects[i].isMarkedForDelete = false;
 				objects.splice(i, 1);
-				
-				Game.actions.onInventoryChanged();
-				
+
 				i--;
 			}
 		}
