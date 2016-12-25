@@ -1,3 +1,6 @@
+v0.2.2 - 2016/12/25
+* fixed critical Miner pathing issue
+
 v0.2.1 - 2016/12/25
 * fixed version number
 * added dates to this changelog (ikr)

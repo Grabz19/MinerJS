@@ -398,6 +398,7 @@ PProxyAI.prototype.act = function(frameTime) {
 					}
 					else {
 						this.state = "Halted";
+						this.findNewRelay(); //TODO
 					}
 				}
 				else {
