@@ -1,3 +1,6 @@
+v0.3.1 - 2016/12/31
+* fixed fatal errors with Firefox
+
 v0.3.0 - 2016/12/31
 * reworked the layout to use flexbox
 * improved Miner pathfinding between relays

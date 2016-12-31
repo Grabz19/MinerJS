@@ -5,8 +5,6 @@
 	</head>
 
 	<body onresize="onResize()">
-		<div id="root"></div>
-
 		<div class="parent parent-row">
 			<div class="parent parent-col child">
 				<div class="parent row" id="container_text">
@@ -54,14 +52,15 @@
 					</div>
 				</div>
 			</div>
-			<div class="parent child" id="canvas_wrapper">
+			<div class="child" id="canvas_wrapper">
 				<canvas id="canvas_level" style="z-index:0" class="border"></canvas>
 				<canvas id="canvas_particles" style="z-index:1"></canvas>
 				<canvas id="canvas_highlight" style="z-index:2"></canvas>
 				<canvas id="canvas_events" style="z-index:999999"></canvas>
-				<div style="z-index: 999998;position:absolute;right:0;bottom:0">v0.3.0</div>
 			</div>
 		</div>
+		
+		<div style="position:absolute;right:0;bottom:0">v0.3.1</div>
 		
 
 		<script type="text/javascript" src="src/PxLoader.js"></script>

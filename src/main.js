@@ -253,14 +253,18 @@
 				canvases[i].canvas.height = oH;
 				canvases[i].canvas.style.width = oW + "px";
 				canvases[i].canvas.style.height = oH + "px";
+				canvases[i].canvas.style.left = "0px";
+				canvases[i].canvas.style.top = "0px";
 			}
 			else {
 				canvases[i].canvas.width = calcWidth;
 				canvases[i].canvas.height = calcHeight;
 				canvases[i].canvas.style.width = calcWidth + "px";
 				canvases[i].canvas.style.height = calcHeight + "px";
+				canvases[i].canvas.style.left = Math.floor((wrapper.clientWidth - calcWidth) / 2) + "px";
+				canvases[i].canvas.style.top = Math.floor((wrapper.clientWidth - calcWidth) / 2) + "px";
 			}
-			
+
 			canvases[i].ctx.mozImageSmoothingEnabled = false;
 			canvases[i].ctx.msImageSmoothingEnabled = false;
 			canvases[i].ctx.imageSmoothingEnabled = false;
@@ -1361,6 +1365,14 @@
 		
 		if(cosp.isPlacingObject && cosp.objectToPlace !== null) {
 			(function() {
+				function isHeadquartersAdjacent(obj, team) {
+					var obj = obj === null ? null : obj.getProperty(PPlayerUnit);
+					obj = obj === null ? null : obj.team;
+					obj = obj === null ? null : (obj !== team ? null : true);
+					
+					return obj === true ? true : false; //i wonder if this will look funny after i look at it in a year
+				}
+				
 				var x, y;
 				if(cosp.objectToPlace.getProperty(PProxyAI) === null) { //TODO if this grows beyond 2, add a definition list
 					for(y = cosp.objectToPlace.y - 2; y < cosp.objectToPlace.y + cosp.objectToPlace.height + 2; y++) {
@@ -1381,25 +1393,17 @@
 					if(playerUnit === null)
 						return;
 					
-					function isHeadquartersAdjacent(obj) {
-						var obj = obj === null ? null : obj.getProperty(PPlayerUnit);
-						obj = obj === null ? null : obj.team;
-						obj = obj === null ? null : (obj !== playerUnit.team ? null : true);
-						
-						return obj === true ? true : false; //i wonder if this will look funny after i look at it in a year
-					}
-					
 					for(y = cosp.objectToPlace.y - 2; y < cosp.objectToPlace.y + cosp.objectToPlace.height + 2; y++) {
 						for(x = cosp.objectToPlace.x - 2; x < cosp.objectToPlace.x + cosp.objectToPlace.width + 2; x++) {
 							var arr = [];
-							arr[0] = isHeadquartersAdjacent(this.getSingleGameObjectWithPropertyAt(x - 1, y, PHeadquarters));
-							arr[1] = isHeadquartersAdjacent(this.getSingleGameObjectWithPropertyAt(x + 1, y, PHeadquarters));
-							arr[2] = isHeadquartersAdjacent(this.getSingleGameObjectWithPropertyAt(x, y - 1, PHeadquarters));
-							arr[3] = isHeadquartersAdjacent(this.getSingleGameObjectWithPropertyAt(x, y + 1, PHeadquarters));
-							arr[4] = isHeadquartersAdjacent(this.getSingleGameObjectWithPropertyAt(x - 1, y - 1, PHeadquarters));
-							arr[5] = isHeadquartersAdjacent(this.getSingleGameObjectWithPropertyAt(x - 1, y + 1, PHeadquarters));
-							arr[6] = isHeadquartersAdjacent(this.getSingleGameObjectWithPropertyAt(x + 1, y - 1, PHeadquarters));
-							arr[7] = isHeadquartersAdjacent(this.getSingleGameObjectWithPropertyAt(x + 1, y + 1, PHeadquarters));
+							arr[0] = isHeadquartersAdjacent(this.getSingleGameObjectWithPropertyAt(x - 1, y, PHeadquarters), playerUnit.team);
+							arr[1] = isHeadquartersAdjacent(this.getSingleGameObjectWithPropertyAt(x + 1, y, PHeadquarters), playerUnit.team);
+							arr[2] = isHeadquartersAdjacent(this.getSingleGameObjectWithPropertyAt(x, y - 1, PHeadquarters), playerUnit.team);
+							arr[3] = isHeadquartersAdjacent(this.getSingleGameObjectWithPropertyAt(x, y + 1, PHeadquarters), playerUnit.team);
+							arr[4] = isHeadquartersAdjacent(this.getSingleGameObjectWithPropertyAt(x - 1, y - 1, PHeadquarters), playerUnit.team);
+							arr[5] = isHeadquartersAdjacent(this.getSingleGameObjectWithPropertyAt(x - 1, y + 1, PHeadquarters), playerUnit.team);
+							arr[6] = isHeadquartersAdjacent(this.getSingleGameObjectWithPropertyAt(x + 1, y - 1, PHeadquarters), playerUnit.team);
+							arr[7] = isHeadquartersAdjacent(this.getSingleGameObjectWithPropertyAt(x + 1, y + 1, PHeadquarters), playerUnit.team);
 							
 							
 							if(this.getGameObjectsAt(x, y) === null && arr.includes(true)) {
