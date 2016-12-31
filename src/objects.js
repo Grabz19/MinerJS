@@ -46,22 +46,20 @@ GameObject.prototype.draw = function(ctx, cellSize) {
 }
 
 GameObject.prototype.getProperty = function(functionName) {
-	var property;
-	for(property in this.properties) {
-		if(this.properties[property] instanceof functionName) {
-			return this.properties[property];
-		}
-	}
+	var property = this.properties[functionName];
 	
-	return null;
+	return property === undefined ? null : property;
+}
+
+GameObject.prototype.getProperties = function() {
+	return this.properties;
 }
 
 function Stash(image, name, x, y, width, height, team) {
 	GameObject.call(this, image, name, x, y, width, height);
 	
-	this.properties = {
-		pPlayerUnit : new PPlayerUnit(this, team, 4)
-	}
+	this.properties[PPlayerUnit] = new PPlayerUnit(this, team, 4);
+	this.properties[PStash] = new PStash(this);
 }
 Stash.prototype = Object.create(GameObject.prototype);
 Stash.prototype.constructor = Stash;
@@ -87,9 +85,7 @@ Wall.prototype.draw = function(ctx, cellSize) {
 function Ore(image, name, x, y, width, height, cosp) {
 	GameObject.call(this, image, name, x, y, width, height);
 	
-	this.properties = {
-		pOreResources : new POreResources(this)
-	}
+	this.properties[POreResources] = new POreResources(this);
 	
 	this.cosp = cosp;
 }
@@ -99,8 +95,9 @@ Ore.prototype.act = function(frameTime) {
 	
 }
 Ore.prototype.draw = function(ctx, cellSize) {
-	var res = this.properties.pOreResources.oreResources[0];
-	var res2 = this.properties.pOreResources.oreResources[1];
+	var prop = this.getProperty(POreResources);
+	var res = prop.oreResources[0];
+	var res2 = prop.oreResources[1];
 	
 	if(res) { //TODO i'm almost positive there is a more efficient way to do this
 		if(res.amtCur >= 64) {
@@ -143,29 +140,27 @@ function Proxy(image, name, x, y, width, height, team, level, particles, player)
 	this.particles = particles;
 	this.player = player;
 	
-	this.properties = {
-		pPlayerUnit : new PPlayerUnit(this, team, 3),
-		pOreMiner : new POreMiner(this, level, particles, player),
-		pOreBuffer : new POreBuffer(this),
-		pOreBufferUnloader : new POreBufferUnloader(this, particles, player),
-		pGridMovement : new PGridMovement(this, level),
-		pUpgradesProxy : new PUpgradesProxy(this),
-		pProxyAI : new PProxyAI(this, level)
-	}
+	this.properties[PPlayerUnit] = new PPlayerUnit(this, team, 3);
+	this.properties[POreMiner] = new POreMiner(this, level, particles, player);
+	this.properties[POreBuffer] = new POreBuffer(this);
+	this.properties[POreBufferUnloader] = new POreBufferUnloader(this, particles, player);
+	this.properties[PGridMovement] = new PGridMovement(this, level);
+	this.properties[PUpgradesProxy] = new PUpgradesProxy(this);
+	this.properties[PProxyAI] = new PProxyAI(this, level);
 }
 Proxy.prototype = Object.create(GameObject.prototype);
 Proxy.prototype.constructor = Proxy;
 
 Proxy.prototype.act = function(frameTime) {
-	this.properties.pProxyAI.act(frameTime);
+	this.getProperty(PProxyAI).act(frameTime);
 }
 
 Proxy.prototype.draw = function(ctx, cellSize) {
-	var mov = this.properties.pGridMovement;
+	var mov = this.getProperty(PGridMovement);
 	if(this.rotation !== 0) {
 		ctx.save();
 		ctx.translate(mov.calculatedX * cellSize + cellSize / 2, mov.calculatedY * cellSize + cellSize / 2);
-		ctx.rotate(this.properties.pGridMovement.rotation * Math.PI / 180);
+		ctx.rotate(mov.rotation * Math.PI / 180);
 		ctx.drawImage(this.image, -(this.width * cellSize / 2), -(this.height * cellSize / 2), this.width * cellSize, this.height * cellSize);
 		ctx.restore();
 	}
@@ -177,22 +172,51 @@ Proxy.prototype.draw = function(ctx, cellSize) {
 function Relay(image, name, x, y, width, height, team, range, connectRange, level) {
 	GameObject.call(this, image, name, x, y, width, height);
 	
-	this.properties = {
-		pPlayerUnit : new PPlayerUnit(this, team, 3),
-		pRelay: new PRelay(this, range, connectRange, level)
-	}
+	this.properties[PPlayerUnit] = new PPlayerUnit(this, team, 3);
+	this.properties[PRelay] = new PRelay(this, range, connectRange, level);
 }
 Relay.prototype = Object.create(GameObject.prototype);
 Relay.prototype.constructor = Relay;
 Relay.prototype.act = function(frameTime) {
-	this.properties.pRelay.act(frameTime);
+	this.getProperty(PRelay).act(frameTime);
 }
 
 Relay.prototype.draw = function(ctx, cellSize) {
 	ctx.drawImage(this.image, this.x * cellSize, this.y * cellSize, this.width * cellSize, this.height * cellSize);
 }
 
+function Headquarters(image, name, x, y, width, height, team, range, connectRange, level) {
+	GameObject.call(this, image, name, x, y, width, height);
+	
+	this.level = level;
+	
+	//this.carriedStash = GameObject.instantiate(new Stash(Game.Assets.imgStash, "Headquarters Stash", 0, 0, 1, 1, team)); //TODO move to property
+	
+	this.properties[PPlayerUnit] = new PPlayerUnit(this, team, 6);
+	this.properties[PRelay] = new PRelay(this, range, connectRange, level);
+	this.properties[PHeadquarters] = new PHeadquarters(this);
+	this.properties[PStash] = new PStash(this);
+}
+Headquarters.prototype = Object.create(GameObject.prototype);
+Headquarters.prototype.constructor = Headquarters;
+Headquarters.prototype.destroy = function() {
+	GameObject.prototype.destroy.apply(this);
+	//this.carriedStash.destroy();
+}
+Headquarters.prototype.onPlay = function() {
+	GameObject.prototype.onPlay.apply(this);
+	//this.carriedStash.x = this.x + 1; //TODO ^^^^
+	//this.carriedStash.y = this.y + 1;
+	
+	//this.level.addGameObject(this.carriedStash);
+}
+Headquarters.prototype.act = function(frameTime) {
+	this.getProperty(PRelay).act(frameTime);
+}
 
+Headquarters.prototype.draw = function(ctx, cellSize) {
+	ctx.drawImage(this.image, this.x * cellSize, this.y * cellSize, this.width * cellSize, this.height * cellSize);
+}
 
 
 

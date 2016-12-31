@@ -1,3 +1,11 @@
+v0.3.0 - 2016/12/31
+* reworked the layout to use flexbox
+* improved Miner pathfinding between relays
+* added Headquarters, which work both as a Stash and a Relay
+* Miners can only be placed next to Headquarters
+* reworked placement colors 
+* right mouse button no longer opens the context menu when clicked on canvas, instead, it cancels current placement
+
 v0.2.2 - 2016/12/25
 * fixed critical Miner pathing issue
 

@@ -355,11 +355,23 @@ PProxyAI.prototype.onReset = function() {
 	this.attemptInterval = 2;
 	this.attemptCount = 0;
 	
+	this.previousRelay = null;
 	this.focusedRelay = null;
 	this.isRelayChanged = false;
 }
 PProxyAI.prototype.onPlay = function() {
-	this.findNewRelay();
+	var hq = this.level.getGameObjectsWithProperty(PHeadquarters);
+	if(hq.length > 0) {
+		var i, playerUnit;
+		for(i = 0; i < hq.length; i++) {
+			playerUnit = hq[i].getProperty(PPlayerUnit);
+			if(playerUnit !== null && playerUnit.team === this.gameObject.getProperty(PPlayerUnit).team) {
+				this.focusedRelay = hq[i];
+				break;
+			}
+		}
+	}
+	
 	this.isRelayChanged = false;
 }
 PProxyAI.prototype.act = function(frameTime) {
@@ -386,19 +398,22 @@ PProxyAI.prototype.act = function(frameTime) {
 			this.haltedClock += frameTime;
 			if(this.haltedClock >= this.haltedInterval) {
 				this.haltedClock = 0;
+				this.haltedInterval = 500 + GameUtil.getRandomInt(0, 1001);
 				this.state = "Idle";
 			}
 			break;
 		case "Idle":
 			if(this.isRelayChanged) {
-				var distance = Vector2.distance(new Vector2(this.gameObject.x, this.gameObject.y), new Vector2(this.focusedRelay.x, this.focusedRelay.y));
-				if(distance > 1) {
+				var pos = this.getTargetPositionInProximityOfObjectWithProperty(PRelay);
+				if(pos === null) {
 					if(this.moveStepTowardsTarget()) {
 						this.state = "Moving";
 					}
 					else {
 						this.state = "Halted";
-						this.findNewRelay(); //TODO
+						this.resetTarget();
+						if(!this.pathToRelay(this.focusedRelay, this.previousRelay))
+							console.log("Proxy: Failed to path to relay");
 					}
 				}
 				else {
@@ -408,7 +423,7 @@ PProxyAI.prototype.act = function(frameTime) {
 			}
 			else if(!buf.isFull) {
 				if(this.targetType == "Ore") {
-					var pos = this.getTargetPositionInProximityOfClass(Ore);
+					var pos = this.getTargetPositionInProximityOfObjectWithProperty(POreResources);
 					if(pos !== null) {
 						mov.rotateTowardsDirection(pos.x - this.gameObject.x, pos.y - this.gameObject.y);
 						miner.x = pos.x;
@@ -430,9 +445,8 @@ PProxyAI.prototype.act = function(frameTime) {
 				else {
 					this.targetPath = this.getTargetOrePosition();
 					if(this.targetPath.length === 0) {
-						this.state = "Halted";
+						this.state = "Idle";
 						this.resetTarget();
-						
 						this.findNewRelay();
 					}
 					else {
@@ -443,7 +457,7 @@ PProxyAI.prototype.act = function(frameTime) {
 			}
 			else {
 				if(this.targetType == "Stash") {
-					var pos = this.getTargetPositionInProximityOfClass(Stash);
+					var pos = this.getTargetPositionInProximityOfObjectWithProperty(PStash);
 					if(pos !== null) {
 						mov.rotateTowardsDirection(pos.x - this.gameObject.x, pos.y - this.gameObject.y);
 						unl.x = pos.x;
@@ -464,8 +478,8 @@ PProxyAI.prototype.act = function(frameTime) {
 				}
 				else {
 					this.targetPath = this.getTargetStashPosition();
-					if(this.targetPath.length == 0) {
-						this.state = "Halted";
+					if(this.targetPath.length === 0) {
+						this.state = "Idle";
 						this.resetTarget();
 						this.findNewRelay();
 					}
@@ -501,8 +515,10 @@ PProxyAI.prototype.resetTarget = function() {
 }
 
 PProxyAI.prototype.moveStepTowardsTarget = function() {
-	if(this.pathIndex === this.targetPath.length)
+	if(this.pathIndex >= this.targetPath.length)
 		return false;
+	
+	
 
 	/*if(this.targetPath.x == this.x && this.targetPath.y == this.y) //if ore is destroyed by another item we don't know about it, so if we'd moved onto it return failed action
 		return false;*/
@@ -518,8 +534,6 @@ PProxyAI.prototype.moveStepTowardsTarget = function() {
 		var y = Math.round(vDirection.y);
 		vDirection = new Vector2(0, y);
 	}
-	
-	this.pathIndex++;
 	
 	/*var collidingObjects = this.level.getGameObjectsAt(this.gameObject.x + vDirection.x, this.gameObject.y + vDirection.y);
 
@@ -543,6 +557,8 @@ PProxyAI.prototype.moveStepTowardsTarget = function() {
 	
 	this.pGridMovement.rotateTowardsDirection(vDirection.x, vDirection.y);
 	this.pGridMovement.moveBy(vDirection);
+	
+	this.pathIndex++;
 
 	return true;
 }
@@ -566,13 +582,13 @@ PProxyAI.prototype.getTargetOrePosition = function() {
         if ((-width/2 < x && x <= width/2) 
                 && (-height/2 < y && y <= height/2)) {
 					
-			calcX = x + this.gameObject.x;
-			calcY = y + this.gameObject.y;
+			calcX = x + this.focusedRelay.x + Math.floor(this.focusedRelay.width / 2);
+			calcY = y + this.focusedRelay.y + Math.floor(this.focusedRelay.height / 2);
 			
-			obj = this.level.getSingleGameObjectOfClassAt(calcX, calcY, Ore);
+			obj = this.level.getSingleGameObjectWithPropertyAt(calcX, calcY, POreResources);
 			
 			if(obj !== null) {
-				path = this.level.getPathWithinRelay(this.gameObject.x, this.gameObject.y, calcX, calcY, this.focusedRelay);
+				path = this.level.getPathWithinConnectingRelays(this.gameObject, obj, this.focusedRelay, this.focusedRelay);
 				
 				if(path.length > 0) {
 					break;
@@ -580,7 +596,7 @@ PProxyAI.prototype.getTargetOrePosition = function() {
 				else {
 					attemptCount++;
 					if(attemptCount >= maxAttempts) {
-						console.log("Max attempts");
+						console.log("Proxy: Max attempts (" + attemptCount + ")");
 						break;
 					}
 				}
@@ -603,7 +619,7 @@ PProxyAI.prototype.getTargetOrePosition = function() {
 }
 
 PProxyAI.prototype.getTargetStashPosition = function() {
-	var arr2 = this.level.getGameObjectsOfClass(Stash);
+	var arr2 = this.level.getGameObjectsWithProperty(PStash);
 	var arr = [];
 	
 	var targetsArr = [];
@@ -614,18 +630,18 @@ PProxyAI.prototype.getTargetStashPosition = function() {
 			arr.push(arr2[i]);
 	}
 	
-	if(arr.length == 0)
+	if(arr.length === 0)
 		return [];
 	
 	for(i = 0; i < arr.length; i++) {
 		for(y = 0; y < arr[i].height; y++) {
 			for(x = 0; x < arr[i].width; x++) {
-				targetsArr.push([arr[i].x + x, arr[i].y + y]);
+				targetsArr.push([arr[i].x + x, arr[i].y + y, arr[i]]);
 			}
 		}
 	}
 
-	var targetCoords = targetsArr[0];
+	var targetIndex = 0;
 	var targetDistance = Vector2.distance(new Vector2(this.gameObject.x, this.gameObject.y), new Vector2(targetsArr[0][0], targetsArr[0][1]));
 	
 	for(i = 1; i < targetsArr.length; i++) {
@@ -633,15 +649,15 @@ PProxyAI.prototype.getTargetStashPosition = function() {
 		if(distance == 0)
 			continue;
 		if(distance < targetDistance) {
-			targetCoords = targetsArr[i];
+			targetIndex = i;
 			targetDistance = distance;
 		}
 	}
 
-	return this.level.getPathWithinRelay(this.gameObject.x, this.gameObject.y, targetCoords[0], targetCoords[1], this.focusedRelay);
+	return this.level.getPathWithinConnectingRelays(this.gameObject, targetsArr[targetIndex][2], this.focusedRelay, this.focusedRelay);
 }
 
-PProxyAI.prototype.getTargetPositionInProximityOfClass = function(c) {
+PProxyAI.prototype.getTargetPositionInProximityOfObjectWithProperty = function(p) {
 	var x = this.gameObject.x;
 	var y = this.gameObject.y;
 	var i, j;
@@ -656,12 +672,15 @@ PProxyAI.prototype.getTargetPositionInProximityOfClass = function(c) {
 		objs = this.level.getGameObjectsAt(sides[i].x, sides[i].y);
 		if(objs !== null) {
 			for(j = 0; j < objs.length; j++) {
-				if(objs[j] instanceof c) {
+				if(objs[j].getProperty(p) !== null) {
 					var property = objs[j].getProperty(PPlayerUnit);
 					if(property) {
 						if(property.team !== this.pPlayerUnit.team)
 							continue;
 					}
+					if(objs[j] === this.previousRelay)
+						continue;
+					
 					return sides[i];
 				}
 			}
@@ -671,8 +690,21 @@ PProxyAI.prototype.getTargetPositionInProximityOfClass = function(c) {
 	return null;
 }
 
+PProxyAI.prototype.pathToRelay = function(toRelay, aroundRelay) {
+	var path = this.level.getPathWithinConnectingRelays(this.gameObject, toRelay, aroundRelay, toRelay);
+	
+	if(path.length > 0) {
+		this.resetTarget();
+		this.targetType = "Relay";
+		this.targetPath = path;
+		
+		return true;
+	}
+	return false;
+}
+
 PProxyAI.prototype.findNewRelay = function() {
-	if(this.focusedRelay === null) { //if no relays
+	/*if(this.focusedRelay === null) { //if no relays
 		var relays = this.level.getGameObjectsWithProperty(PRelay);
 		var _obj;
 		for(_obj in relays) {
@@ -700,35 +732,33 @@ PProxyAI.prototype.findNewRelay = function() {
 			this.isRelayChanged = true;
 			return true;
 		}
-	}
-	else { //if can go off existing relay
-		var i, j, prop = this.focusedRelay.getProperty(PRelay);
-		
-		var currentSetOfRelays = [];
+	}*/
+	
 
-		for(i = 0; i < prop.connections.length; i++) {
+	var i, j, prop = this.focusedRelay.getProperty(PRelay);
+
+	var currentSetOfRelays = [];
+
+	for(i = 0; i < prop.connections.length; i++) {
+		//if the connection is not current relay or previous relay if more than 1 connection exists
+		if(prop.connections[i] !== this.focusedRelay) {
+			if(prop.connections[i] === this.previousRelay && prop.connections.length > 1)
+				continue;
+			
 			currentSetOfRelays.push(prop.connections[i]);
 		}
-		
-		if(currentSetOfRelays.length === 0)
-			return false;
-		
-		var chosenRelay = currentSetOfRelays[Math.floor(Math.random() * prop.connections.length)];
-		
-		var path = this.level.getPathWithinRelay(this.gameObject.x, this.gameObject.y, chosenRelay.x, chosenRelay.y, this.focusedRelay);
-		
-		if(path.length > 0) {
-			this.resetTarget();
-			this.targetType = "Relay";
-			this.targetPath = path;
-			
-			this.focusedRelay = chosenRelay;
-			
-			this.isRelayChanged = true;
-			return true;
-		}
-		else return false;
-		
+	}
+	
+	if(currentSetOfRelays.length === 0)
+		return false;
+	
+	var chosenRelay = currentSetOfRelays[Math.floor(Math.random() * currentSetOfRelays.length)];
+	
+	this.previousRelay = this.focusedRelay;
+	this.focusedRelay = chosenRelay;
+	this.isRelayChanged = true;
+	
+	return this.pathToRelay(this.focusedRelay, this.previousRelay);
 		
 		
 		/*for(j = 0; j < 1000; j++) {
@@ -738,7 +768,7 @@ PProxyAI.prototype.findNewRelay = function() {
 		}*/
 		
 		//console.warn("PProxyAI findNewRelay() reached threshold of 1000.");
-	}
+	
 }
 
 function PPlayerUnit(gameObject, team, fogOfWarRadius) {
@@ -763,7 +793,7 @@ function PRelay(gameObject, range, connectRange, level) {
 PRelay.prototype = Object.create(GameObjectProperty.prototype);
 PRelay.prototype.constructor = PRelay;
 PRelay.prototype.onPlay = function() {
-	console.log("Relay placed");
+	
 	
 }
 PRelay.prototype.addConnection = function(gameObject) {
@@ -782,30 +812,42 @@ PRelay.prototype.addConnection = function(gameObject) {
 	this.connections.push(gameObject);
 	return true;
 }
-PRelay.prototype.act = function(frameTime) {
+PRelay.prototype.act = function(frameTime) {/*
 	this.connections = [];
 	
-	var relays = this.level.getGameObjectsWithProperty(PRelay);
-	var relay;
-	for(relay in relays) {
-		if(relays[relay] === this.gameObject)
+	var relays = this.level.getGameObjectsWithPropertyReturnProperty(PRelay);
+	var name, relay;
+	var x1, y1, x2, y2;
+	
+	var temp, distance, prop, relayObj;
+	
+	for(name in relays) {
+		relay = relays[name];
+		relayObj = relay.gameObject;
+		
+		if(relayObj === this.gameObject)
 			continue;
 		
-		var prop1 = relays[relay].getProperty(PPlayerUnit);
-		var prop2 = this.gameObject.getProperty(PPlayerUnit);
+		distance = Number.MAX_VALUE;
 		
-		if(prop1 === null || prop2 === null || prop1.team !== prop2.team)
+		for(y1 = relayObj.y; y1 < relayObj.y + relayObj.height; y1++)
+			for(x1 = relayObj.x; x1 < relayObj.x + relayObj.width; x1++)
+				for(y2 = this.gameObject.y; y2 < this.gameObject.y + this.gameObject.height; y2++)
+					for(x2 = this.gameObject.x; x2 < this.gameObject.x + this.gameObject.width; x2++) {
+						temp = Vector2.distance(new Vector2(x1, y1), new Vector2(x2, y2));
+						if(temp < distance)
+							distance = temp;
+					}
+		
+		if(distance > this.connectRange && distance > relay.connectRange)
 			continue;
 		
-		if(Vector2.distance(new Vector2(relays[relay].x, relays[relay].y), new Vector2(this.gameObject.x, this.gameObject.y)) > this.connectRange)
+		if(this.level.isRaycastBlocked(this.gameObject, relayObj))
 			continue;
 		
-		if(this.level.isRaycastBlocked(this.gameObject, relays[relay]))
-			continue;
-		
-		this.addConnection(relays[relay]);
-		relays[relay].getProperty(PRelay).addConnection(this.gameObject);
-	}
+		this.addConnection(relayObj);
+		relay.addConnection(this.gameObject);
+	}*/
 }
 
 
@@ -872,8 +914,18 @@ PUpgradesProxy.prototype.upgrade = function(what) {
 	return false;
 }
 
+function PStash(gameObject) {
+	GameObjectProperty.call(this, gameObject);
+}
+PStash.prototype = Object.create(GameObjectProperty.prototype);
+PStash.prototype.constructor = PStash;
 
 
+function PHeadquarters(gameObject) {
+	GameObjectProperty.call(this, gameObject);
+}
+PHeadquarters.prototype = Object.create(GameObjectProperty.prototype);
+PHeadquarters.prototype.constructor = PHeadquarters;
 
 
 

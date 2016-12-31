@@ -59,6 +59,17 @@ GameUtil.isColliding = function(x1, y1, width1, height1, x2, y2, width2, height2
 			height1 + y1 > y2);
 }
 
+GameUtil.convertMouseToCoordinates = function(mouseX, mouseY, cellSize) {
+	return new Vector2(Math.floor(mouseX / cellSize), Math.floor(mouseY / cellSize));
+}
+
+GameUtil.getPositionOfGameObjectToPlace = function(obj, cellX, cellY) {
+	cellX = cellX - Math.floor((obj.width - 1) / 2);
+	cellY = cellY - Math.floor((obj.height - 1) / 2);
+	
+	return new Vector2(cellX, cellY);
+}
+
 GameUtil.convertArrayCoordinatesToSmallerArray = function(coordinate, originalSize, targetSize) {
 	var newC = 0;
 	var offset = 0;
@@ -79,6 +90,17 @@ GameUtil.convertArrayCoordinatesToSmallerArray = function(coordinate, originalSi
 		coordinate: newC,
 		startAt : offset
 	};
+}
+
+GameUtil.getRandomInt = function(minIncl, maxExcl) {
+	return Math.floor(Math.random() * (maxExcl - minIncl + 1)) + minIncl;
+}
+GameUtil.getWindowWidth = function() {
+	return window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+}
+
+GameUtil.getWindowHeight = function() {
+	return window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
 }
 
 GameUtil.iterateOverCircle = function(originX, originY, radius, callback) { //callback(x, y)
